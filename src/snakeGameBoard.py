@@ -1,11 +1,8 @@
-import pygame
 import random
 from enum import Enum
 from collections import namedtuple
 import numpy as np
 import time
-pygame.init()
-font = pygame.font.Font('arial.ttf', 25)
 
 
 def distance(a,b):
@@ -164,6 +161,9 @@ def terminate_play():
 
 class pygame_play:
     def __init__(self):
+        import pygame
+        pygame.init()
+        self.font = pygame.font.Font('arial.ttf', 25)
         self.game = snakeGame()
         self.screen = pygame.display.set_mode((self.game.w*BLOCK_SIZE, self.game.h*BLOCK_SIZE))
         self.clock = pygame.time.Clock()
@@ -185,14 +185,8 @@ class pygame_play:
             pygame.draw.rect(self.screen, BLUE1, pygame.Rect(pt.x*BLOCK_SIZE, pt.y*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
         pygame.draw.rect(self.screen, YELLOW, pygame.Rect(self.game.head.x*BLOCK_SIZE, self.game.head.y*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
         pygame.draw.rect(self.screen, RED, pygame.Rect(self.game.food.x*BLOCK_SIZE, self.game.food.y*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
-        text = font.render("Score: " + str(self.game.score), True, WHITE)
+        text = self.font.render("Score: " + str(self.game.score), True, WHITE)
         self.screen.blit(text, [0, 0])
         pygame.display.flip()
 
 
-game = pygame_play()
-while True:
-    action = np.random.randn(4)
-    reward, game_over, score = game.play_step(action)
-    if game_over:
-        break

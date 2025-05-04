@@ -8,7 +8,6 @@ from collections import deque
 import random
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"Using device: {device}")
 
 class Linear_QNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
@@ -167,7 +166,7 @@ class PPOtrainer:
         self.value_losses = []
         self.bad_states_buffer = deque(maxlen=1000)
     
-    def train_step(self, states, actions, rewards, dones, old_probs, epochs):
+    def train_step(self, states, actions, rewards, dones, old_probs):
 
         # Convert to tensors
         states = torch.tensor(np.array(states), dtype=torch.float).to(device)
@@ -207,15 +206,13 @@ class PPOtrainer:
         self.optimizer.zero_grad()
         policy_loss.backward()
         self.optimizer.step()
-        if epochs == 9:
-            self.policy_losses.append(policy_loss.item())
+        self.policy_losses.append(policy_loss.item())
 
         value_loss = (discounted_rewards - curr_value).pow(2).mean()
         self.value_optimizer.zero_grad()
         value_loss.backward()
         self.value_optimizer.step()
-        if epochs == 9:
-            self.value_losses.append(value_loss.item())
+        self.value_losses.append(value_loss.item())
 
 
 class board_net(nn.Module):
