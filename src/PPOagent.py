@@ -26,6 +26,7 @@ class PPO:
         self.epsilon_decay = 0.995
         self.gamma = GAMMA # discount rate
         self.memory = []
+        self.current_memory = []
         self.model = models[choice]
         self.value_net = value_nets[choice]
         self.trainer = PPOtrainer(self.model, self.value_net, lr=LR, gamma=self.gamma)
@@ -51,10 +52,10 @@ class PPO:
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 
     def remember(self, state, action, reward, done, old_prob):
-        self.memory.append((state, action, reward, done, old_prob))
+        self.current_memory.append((state, action, reward, done, old_prob))
 
-    def train_long_memory(self, epochs):
-        states, actions, rewards, dones, old_probs = zip(*self.memory)
+    def train_long_memory(self, epochs, memory):
+        states, actions, rewards, dones, old_probs = zip(*memory)
         self.trainer.train_step(states, actions, rewards, dones, old_probs, epochs)
 
 def plot_losses(policy_losses, value_losses):
@@ -83,42 +84,46 @@ def train(continue_training=False,model_name='model_fc.pth',value_name='value_ne
         agent.value_net.load(value_name)
         agent.epsilon = 0.01
     while True:
-        # get old state
-        state_old = agent.state_function(game.game)
+        for i in range(epochs):
+            done = False
+            while not done:
+                # get old state
+                state_old = agent.state_function(game.game)
 
-        # get move
-        final_move, old_prob = agent.get_action(state_old)
-        # perform move and get new state
-        reward, done, score = game.play_step(final_move)
-        cumulative_reward += reward
+                # get move
+                final_move, old_prob = agent.get_action(state_old)
+                # perform move and get new state
+                reward, done, score = game.play_step(final_move)
+                cumulative_reward += reward
 
-        # remember
-        agent.remember(state_old, final_move, reward, done, old_prob)
-
-        if done:
-            # train long memory, plot result
-            for i in range(epochs):
-                agent.train_long_memory(i)
-
-            agent.memory = []
-            agent.decay_epsilon()
+                # remember
+                agent.remember(state_old, final_move, reward, done, old_prob)
             game.reset()
-            agent.n_games += 1
+            agent.memory.append(agent.current_memory)
+            agent.current_memory = []
 
-            if score > record:
-                record = score
-                agent.model.save()
-                agent.value_net.save(f'value_net.pth')
+        # train long memory, plot result
+        for i in range(epochs):
+            agent.train_long_memory(i, agent.memory[i])
 
-            print('Game', agent.n_games, 'Score', score, 'Record:', record, 'Cumulative Reward:', cumulative_reward)
-            print(f"Epsilon: {agent.epsilon}, Policy Loss: {agent.trainer.policy_losses[-1]}, Value Loss: {agent.trainer.value_losses[-1]}")
-            cumulative_reward = 0
-            plot_scores.append(score)
-            total_score += score
-            mean_score = total_score / agent.n_games
-            plot_mean_scores.append(mean_score)
-            plot(plot_scores, plot_mean_scores)
-            plot_losses(agent.trainer.policy_losses[-100:], agent.trainer.value_losses[-100:])
+        agent.memory = []
+        agent.decay_epsilon()
+        agent.n_games += 1
+
+        if score > record:
+            record = score
+            agent.model.save()
+            agent.value_net.save(f'value_net.pth')
+
+        print('Game', agent.n_games, 'Score', score, 'Record:', record, 'Cumulative Reward:', cumulative_reward/epochs)
+        print(f"Epsilon: {agent.epsilon}, Policy Loss: {agent.trainer.policy_losses[-1]}, Value Loss: {agent.trainer.value_losses[-1]}")
+        cumulative_reward = 0
+        plot_scores.append(score)
+        total_score += score
+        mean_score = total_score / agent.n_games
+        plot_mean_scores.append(mean_score)
+        plot(plot_scores, plot_mean_scores)
+        plot_losses(agent.trainer.policy_losses[-100:], agent.trainer.value_losses[-100:])
 
 
 if __name__ == '__main__':
